@@ -10,3 +10,16 @@ List any additional dependencies used.
 For this lab, you must also address the following questions:
 Are the heuristics used in this assignment to determine incidents "even that good"?
 If you have spare time in the future, what would you add to the program or do differently with regards to detecting incidents?
+
+<!--
+### instructions
+Your tool shall be able to analyze for the following incidents:
+NULL scan
+FIN scan
+Xmas scan
+Usernames and passwords sent in-the-clear via HTTP Basic Authentication, FTP, and IMAP
+Nikto scan
+Someone scanning for Server Message Block (SMB) protocol
+Someone scanning for Remote Desktop Protocol (RDP)
+Someone scanning for Virtual Network Computing (VNC) instance(s)
+-->
