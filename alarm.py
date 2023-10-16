@@ -2,17 +2,23 @@
 
 from scapy.all import *
 import argparse
-
+import base64
 
 incident_number = 0
+username = {}
 def packetcallback(packet):
   try:
+    # from Piazza: we generally don't care for non-TCP packets.
+    if not packet.haslayer(TCP):
+      return
     global incident_number
+    global username
     alarm = False
 
-    # Your tool shall be able to analyze for the following incidents:
+    # print(f"ID {packet.id} is a TCP packet with flag {packet[TCP].flags}")
+    # nalyze for the following incidents:
     # NULL scan - no flags set
-    if packet[TCP].flags == 0:
+    if packet[TCP].flags == 0x0:
       incident_number += 1
       incident = "NULL scan"
       src_ip = packet[IP].src
@@ -39,33 +45,76 @@ def packetcallback(packet):
       alarm = True
 
     # Usernames and passwords sent in-the-clear via HTTP Basic Authentication, FTP, and IMAP
-    #   - base64 encoded
-    elif packet[TCP].dport == 80 or packet[TCP].dport == 21 or packet[TCP].dport == 143:
+    #   - port 80/ 21/ 143, base64 encoded
+    elif packet[TCP].dport == 8000 or packet[TCP].dport == 80 or packet[TCP].dport == 21 or packet[TCP].dport == 143:
       if packet[TCP].payload:
-        payload = packet[TCP].payload.load
-        if payload:
-          if payload.decode('utf-8').startswith('USER') or payload.decode('utf-8').startswith('PASS'):
+        payload = packet[TCP].load.decode("ascii").strip()
+
+        # 1: base64 decode
+        if payload.startswith('GET') or payload.startswith('POST'):
+          b64_index = payload.find('Authorization: Basic')+21
+          if b64_index != -1:
+            b64_end = payload.find('\r\n', b64_index)
+            pair = base64.b64decode(payload[b64_index:b64_end]).decode('ascii')
+            username, passwd = pair.split(':')
+
             incident_number += 1
-            incident = "Username and password sent in-the-clear"
+            incident = "Username and passwords sent in-the-clear"
             src_ip = packet[IP].src
-            protocol_or_port = 'TCP'
-            payload = ' (' + payload.decode('utf-8')[:-2] + ')' # remove \r\n
+            protocol_or_port = 'IMAP' if packet[TCP].dport == 143 else 'FTP' if packet[TCP].dport == 21 else 'HTTP'
+            payload = f'(username: {username}, password: {passwd})'
             alarm = True
 
-    # Nikto scan - User-Agent contains "nikto"
+        # 2: no base64 encoding
+        # keep track of username
+        elif payload.startswith('USER'):
+          username = payload[5:-2]
+        # match username and password
+        elif payload.startswith('PASS'):
+          incident_number += 1
+          incident = "Username and passwords sent in-the-clear"
+          src_ip = packet[IP].src
+          protocol_or_port = 'IMAP' if packet[TCP].dport == 143 else 'FTP' if packet[TCP].dport == 21 else 'HTTP'
+          payload = f'(username: {username}, password: {payload[5:-2]})'
+          alarm = True
+
+    # Nikto scan - no idea what this is
+
     # Someone scanning for Server Message Block (SMB) protocol - port 445
+    elif packet[TCP].dport == 445:
+      incident_number += 1
+      incident = "Someone scanning for SMB"
+      src_ip = packet[IP].src
+      protocol_or_port = 'TCP'
+      payload = ''
+      alarm = True
+
     # Someone scanning for Remote Desktop Protocol (RDP) - port 3389
+    elif packet[TCP].dport == 3389:
+      incident_number += 1
+      incident = "Someone scanning for or RDP"
+      src_ip = packet[IP].src
+      protocol_or_port = 'TCP'
+      payload = ''
+      alarm = True
+
     # Someone scanning for Virtual Network Computing (VNC) instance(s) - port 5900
-    # The following is an example of Scapy detecting HTTP traffic - port 80
-    # Please remove this case in your actual lab implementation so it doesn't pollute the alerts
+    elif packet[TCP].dport == 5900:
+      incident_number += 1
+      incident = "Someone scanning for VNC"
+      src_ip = packet[IP].src
+      protocol_or_port = 'TCP'
+      payload = ''
+      alarm = True
 
     if alarm:
       # sample alert
       print(f'ALERT #{incident_number}: {incident} is detected from {src_ip}',
             f'({protocol_or_port}){payload}!')
+
   except Exception as e:
     # Uncomment the below and comment out `pass` for debugging, find error(s)
-    print("ERROR: ", e)
+    # print("ERROR: ", e)
     pass
 
 # DO NOT MODIFY THE CODE BELOW
