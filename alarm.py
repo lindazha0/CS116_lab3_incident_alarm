@@ -21,8 +21,6 @@ def packetcallback(packet):
     if packet[TCP].flags == 0x0:
       incident_number += 1
       incident = "NULL scan"
-      src_ip = packet[IP].src
-      protocol_or_port = 'TCP'
       payload = ''
       alarm = True
 
@@ -30,8 +28,6 @@ def packetcallback(packet):
     elif packet[TCP].flags == 'F':
       incident_number += 1
       incident = "FIN scan"
-      src_ip = packet[IP].src
-      protocol_or_port = 'TCP'
       payload = ''
       alarm = True
 
@@ -39,8 +35,6 @@ def packetcallback(packet):
     elif packet[TCP].flags == 'FPU':
       incident_number += 1
       incident = "Xmas scan"
-      src_ip = packet[IP].src
-      protocol_or_port = 'TCP'
       payload = ''
       alarm = True
 
@@ -60,8 +54,6 @@ def packetcallback(packet):
 
             incident_number += 1
             incident = "Username and passwords sent in-the-clear"
-            src_ip = packet[IP].src
-            protocol_or_port = 'IMAP' if packet[TCP].dport == 143 else 'FTP' if packet[TCP].dport == 21 else 'HTTP'
             payload = f'(username: {username}, password: {passwd})'
             alarm = True
 
@@ -73,8 +65,6 @@ def packetcallback(packet):
         elif payload.startswith('PASS'):
           incident_number += 1
           incident = "Username and passwords sent in-the-clear"
-          src_ip = packet[IP].src
-          protocol_or_port = 'IMAP' if packet[TCP].dport == 143 else 'FTP' if packet[TCP].dport == 21 else 'HTTP'
           payload = f'(username: {username}, password: {payload[5:-2]})'
           alarm = True
 
@@ -84,8 +74,6 @@ def packetcallback(packet):
     elif packet[TCP].dport == 445:
       incident_number += 1
       incident = "Someone scanning for SMB"
-      src_ip = packet[IP].src
-      protocol_or_port = 'TCP'
       payload = ''
       alarm = True
 
@@ -93,8 +81,6 @@ def packetcallback(packet):
     elif packet[TCP].dport == 3389:
       incident_number += 1
       incident = "Someone scanning for or RDP"
-      src_ip = packet[IP].src
-      protocol_or_port = 'TCP'
       payload = ''
       alarm = True
 
@@ -102,14 +88,22 @@ def packetcallback(packet):
     elif packet[TCP].dport == 5900:
       incident_number += 1
       incident = "Someone scanning for VNC"
-      src_ip = packet[IP].src
-      protocol_or_port = 'TCP'
       payload = ''
       alarm = True
 
     if alarm:
+      # determine protocol or port
+      if packet[TCP].dport == 143:
+        protocol_or_port = 'IMAP'
+      elif packet[TCP].dport == 21:
+        protocol_or_port = 'FTP'
+      elif packet[TCP].dport == 80 or packet[TCP].dport == 8000:
+        protocol_or_port = 'HTTP'
+      else:
+        protocol_or_port = 'TCP'
+
       # sample alert
-      print(f'ALERT #{incident_number}: {incident} is detected from {src_ip}',
+      print(f'ALERT #{incident_number}: {incident} is detected from {packet[IP].src}',
             f'({protocol_or_port}){payload}!')
 
   except Exception as e:
