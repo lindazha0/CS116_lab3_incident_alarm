@@ -44,10 +44,11 @@ def packetcallback(packet):
       if packet[TCP].payload:
         payload = packet[TCP].load.decode("ascii").strip()
 
-        # 1: base64 decode
+        # 1: HTTP Basic, Nikto or base64 decode
         if payload.startswith('GET') or payload.startswith('POST'):
-          b64_index = payload.find('Authorization: Basic')+21
+          b64_index = payload.find('Authorization: Basic')
           if b64_index != -1:
+            b64_index += 21
             b64_end = payload.find('\r\n', b64_index)
             pair = base64.b64decode(payload[b64_index:b64_end]).decode('ascii')
             username, passwd = pair.split(':')
@@ -55,6 +56,12 @@ def packetcallback(packet):
             incident_number += 1
             incident = "Username and passwords sent in-the-clear"
             payload = f'(username: {username}, password: {passwd})'
+            alarm = True
+          # Nikto scan
+          elif 'Nikto/2.1.6' in payload:
+            incident_number += 1
+            incident = "Nikto scan"
+            payload = ''
             alarm = True
 
         # 2: no base64 encoding
@@ -67,8 +74,6 @@ def packetcallback(packet):
           incident = "Username and passwords sent in-the-clear"
           payload = f'(username: {username}, password: {payload[5:-2]})'
           alarm = True
-
-    # Nikto scan - no idea what this is
 
     # Someone scanning for Server Message Block (SMB) protocol - port 445
     elif packet[TCP].dport == 445:
@@ -108,7 +113,7 @@ def packetcallback(packet):
 
   except Exception as e:
     # Uncomment the below and comment out `pass` for debugging, find error(s)
-    # print("ERROR: ", e)
+    print("ERROR: ", e)
     pass
 
 # DO NOT MODIFY THE CODE BELOW
