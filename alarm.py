@@ -113,7 +113,7 @@ def packetcallback(packet):
 
   except Exception as e:
     # Uncomment the below and comment out `pass` for debugging, find error(s)
-    print("ERROR: ", e)
+    # print("ERROR: ", e)
     pass
 
 # DO NOT MODIFY THE CODE BELOW
